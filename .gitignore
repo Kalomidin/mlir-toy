@@ -1,5 +1,4 @@
 *.o
 *.exe
-*toy*
 *build*
 .vscode
