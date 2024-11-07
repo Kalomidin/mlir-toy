@@ -2,3 +2,4 @@
 *.exe
 *toy*
 *build*
+.vscode
