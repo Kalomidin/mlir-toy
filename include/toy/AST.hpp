@@ -85,14 +85,25 @@ public:
 };
 
 class LiteralExprAST: public ExprAST {
-    double Val;
+    std::vector<ExprAST> Values;
+    VarType Type;
 public:
-    LiteralExprAST(Location Loc, double Val)
-        : ExprAST(Loc, Expr_Literal), Val(Val) {}
+    LiteralExprAST(Location Loc, std::vector<ExprAST> Values, VarType Type)
+        : ExprAST(Loc, Expr_Literal), Values(Values), Type(Type) {}
 
     static bool classof(const ExprAST *E) {
         return E->getKind() == Expr_Literal;
     } 
+};
+
+class NumberExprAST: public ExprAST {
+    double Val;
+public:
+    NumberExprAST(Location Loc, double Val) : ExprAST(Loc, Expr_Num), Val(Val) {}
+
+    static bool classof(const ExprAST *E) {
+        return E->getKind() == Expr_Num;
+    }
 };
 
 class BinOpExprAST: public ExprAST {
