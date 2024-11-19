@@ -46,18 +46,24 @@ public:
     static bool classof(const ExprAST *E) {
         return E->getKind() == Expr_Var;
     }
+
+    const std::string &getName() { return Name; }
 };
 
 class PrototypeExprAST: public ExprAST {
     std::string Name;
-    std::vector<VariableExprAST> Args;
+    std::vector<std::unique_ptr<VariableExprAST>> Args;
 public:
-    PrototypeExprAST(Location Loc, std::string Name, std::vector<VariableExprAST> Args)
-        : ExprAST(Loc, Expr_Prototype), Name(Name), Args(Args) {}
+    PrototypeExprAST(Location Loc, std::string Name, std::vector<std::unique_ptr<VariableExprAST>> Args)
+        : ExprAST(Loc, Expr_Prototype), Name(Name), Args(std::move(Args)) {}
 
     static bool classof(const ExprAST *E) {
         return E->getKind() == Expr_Prototype;
     }
+
+    const std::string &getName() { return Name; }
+
+    std::vector<std::unique_ptr<VariableExprAST>> &getArgs() { return Args; }
 };
 
 class VarDeclExprAST: public ExprAST {
@@ -71,6 +77,9 @@ public:
     static bool classof(const ExprAST *E) {
         return E->getKind() == Expr_VarDecl;
     }
+
+    const std::string &getName() { return Name; }
+    const std::unique_ptr<ExprAST> &getExpr() { return Expr; }
 };
 
 class ReturnExprAST: public ExprAST {
@@ -82,18 +91,23 @@ public:
     static bool classof(const ExprAST *E) {
         return E->getKind() == Expr_Return;
     }
+
+    std::unique_ptr<ExprAST> &getValue() { return Value; }
 };
 
 class LiteralExprAST: public ExprAST {
-    std::vector<ExprAST> Values;
+    std::vector<std::unique_ptr<ExprAST>> Values;
     VarType Type;
 public:
-    LiteralExprAST(Location Loc, std::vector<ExprAST> Values, VarType Type)
-        : ExprAST(Loc, Expr_Literal), Values(Values), Type(Type) {}
+    LiteralExprAST(Location Loc, std::vector<std::unique_ptr<ExprAST>> &&Values, VarType Type)
+        : ExprAST(Loc, Expr_Literal), Values(std::move(Values)), Type(Type) {}
 
     static bool classof(const ExprAST *E) {
         return E->getKind() == Expr_Literal;
-    } 
+    }
+    std::vector<std::unique_ptr<ExprAST>> &getValues() { return Values; }
+
+    VarType &getType() { return Type; }
 };
 
 class NumberExprAST: public ExprAST {
@@ -104,6 +118,8 @@ public:
     static bool classof(const ExprAST *E) {
         return E->getKind() == Expr_Num;
     }
+
+    double getVal() { return Val; }
 };
 
 class BinOpExprAST: public ExprAST {
@@ -116,6 +132,11 @@ public:
     static bool classof(const ExprAST *E) {
         return E->getKind() == Expr_BinOp;
     }
+
+    char getOp() { return Op; }
+
+    std::unique_ptr<ExprAST> &getLHS() { return LHS; }
+    std::unique_ptr<ExprAST> &getRHS() { return RHS; }
 };
 
 class CallExprAST: public ExprAST {
@@ -128,12 +149,17 @@ public:
     static bool classof(const ExprAST *E) {
         return E->getKind() == Expr_Call;
     }
+
+    const std::string &getCallee() { return Callee; }
+    const std::vector<std::unique_ptr<ExprAST>> &getArgs() { return Args; }
 };
 
 class ExprASTList {
     std::vector<std::unique_ptr<ExprAST>> Exprs;
 public:
     ExprASTList(std::vector<std::unique_ptr<ExprAST>> Exprs) : Exprs(std::move(Exprs)) {}
+    
+    std::vector<std::unique_ptr<ExprAST>> &getExprs() { return Exprs; }
 };
 
 // Expression class for numeric literals like "1.0".
@@ -146,15 +172,21 @@ public:
     FunctionExprAST(Location Loc, std::unique_ptr<PrototypeExprAST> Proto, std::unique_ptr<ExprASTList> Block)
         : Loc(Loc), Proto(std::move(Proto)), Block(std::move(Block)) {}
 
+    std::unique_ptr<PrototypeExprAST> &getProto() { return Proto; }
+    std::unique_ptr<ExprASTList> &getBlock() { return Block; }
 };
 
 class ModuleAST {
-    std::vector<FunctionExprAST> Functions;
+    std::vector<std::unique_ptr<FunctionExprAST>> Functions;
 public:
     // Use rvalue reference to move the vector
-    ModuleAST(std::vector<FunctionExprAST> Functions)
+    ModuleAST(std::vector<std::unique_ptr<FunctionExprAST>> Functions)
         : Functions(std::move(Functions)) {}  // Move the vector
+
+    std::vector<std::unique_ptr<FunctionExprAST>> &getFunctions() { return Functions; }
 };
+
+void dump(ModuleAST &module);
 };
 
 #endif // AST_HPP

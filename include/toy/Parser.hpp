@@ -12,13 +12,13 @@ public:
 
     std::unique_ptr<ModuleAST> parseModule() {
         lexer.NextToken();
-        std::vector< FunctionExprAST> functions;
+        std::vector<std::unique_ptr<FunctionExprAST>> functions;
         while(lexer.CurToken() != tok_eof) {
             auto f = parseDefinition();
             if (!f) {
                 return nullptr;
             }
-            functions.push_back(std::move(*f));
+            functions.push_back(std::move(f));
         }
 
         return std::make_unique<ModuleAST>(std::move(functions));
@@ -44,9 +44,9 @@ private:
             return parseError<PrototypeExprAST>("Expected '(' in prototype");
         }
         lexer.NextToken(); // eat '('
-        std::vector<VariableExprAST> args;
+        std::vector<std::unique_ptr<VariableExprAST>> args;
         while (lexer.CurToken() == tok_identifier) {
-            args.push_back(VariableExprAST(lexer.GetLocation(), lexer.GetIdentifier()));
+            args.push_back(std::make_unique<VariableExprAST>(lexer.GetLocation(), lexer.GetIdentifier()));
             lexer.NextToken(); // eat identifier
             if (lexer.CurToken() != ',') {
                 break;
@@ -120,26 +120,39 @@ private:
     // tensorLiteral ::= [number | number]
     std::unique_ptr<ExprAST> parseTensorLiteral() {
         auto loc = lexer.GetLocation();
-        // TODO: implement tensor literal
         if (lexer.CurToken() != tok_sbracket_open) {
             return parseError<ExprAST>("Expected '[' in tensor literal");
         }
         lexer.NextToken(); // eat '['
-        std::vector<ExprAST> values;
+        std::vector<std::unique_ptr<ExprAST>> values;
         bool isTensor = false;
         bool isNumber = false;
+        int col = -1;
         while (lexer.CurToken() != tok_sbracket_close) {
             if (lexer.CurToken() == tok_sbracket_open) {
                 if (isNumber) {
                     return parseError<ExprAST>("Number is mixed with tensor");
                 }
-                values.push_back(*std::move(parseTensorLiteral()));
+                auto v = parseTensorLiteral();
+                if (!v) {
+                    return nullptr;
+                }
+                auto vv = static_cast<LiteralExprAST*>(v.get());
+                if (col == -1) {
+                    col = vv->getType().shape[0];
+                }
+                if (col != vv->getType().shape[0]) {
+                    return parseError<ExprAST>("All tensors should have the same shape");
+                }
+                values.push_back(std::move(v));
                 isTensor = true;
             } else if (lexer.CurToken() == tok_number) {
                 if (isTensor) {
                     return parseError<ExprAST>("Number is mixed with tensor");
                 }
-                values.push_back(*std::move(parseNumber()));
+                col = 1;
+                auto v = parseNumber();
+                values.push_back(std::move(v));
                 isNumber = true;
             } else {
                 return parseError<ExprAST>("Expected number or tensor");
@@ -149,17 +162,12 @@ private:
             }
             lexer.NextToken(); // eat ','
         }
-        // TODO: check if all values have the same shape
         VarType dims;
-        if (isTensor) {
-            dims.shape.push_back(values.size());
-            // dims.shape.push_back(values[0]->getType().shape[0]);
-        } else {
-            dims.shape.push_back(values.size());
-            dims.shape.push_back(1);
-        }
+        dims.shape.push_back(values.size());
+        dims.shape.push_back(col);
         lexer.NextToken(); // eat ']'
-        return std::make_unique<LiteralExprAST>(loc, std::move(values), dims);
+        auto res = std::make_unique<LiteralExprAST>(loc, std::move(values), std::move(dims));
+        return res;
     }
 
     std::unique_ptr<ExprAST> parsePrimary() {
@@ -246,7 +254,7 @@ private:
             if (lexer.CurToken() != tok_brace_close) {
                 return parseError<VarDeclExprAST>("Expected '>' in type");
             }
-            
+
             if (shape.size() != 2) {
                 return parseError<VarDeclExprAST>("Expected 2 numbers in type but got " + std::to_string(shape.size()));
             }

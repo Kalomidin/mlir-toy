@@ -44,6 +44,7 @@ public:
         Column = 0;
         CurTok = 0;
         Filename = filename;
+        location = {std::make_shared<std::string>(filename), 1, 0};
         file = new std::ifstream(filename);
         if (!file->is_open()) {
             std::cerr << "Error opening file: " << filename << std::endl;

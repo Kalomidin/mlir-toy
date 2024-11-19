@@ -11,6 +11,7 @@ int main(int argc, char *argv[]) {
     toy::Lexer lexer(argv[1]);
     toy::Parser parser(lexer);
     auto module = parser.parseModule();
+    toy::dump(*module);
     if (!module) {
         return 1;
     }
